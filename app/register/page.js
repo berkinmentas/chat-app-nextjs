@@ -1,8 +1,13 @@
 "use client";
-import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { auth, firestore } from "@/lib/firebase";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore";
+import { toast } from "react-hot-toast";
 import { AvatarGenerator } from "random-avatar-generator";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+
 function page() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -27,7 +32,7 @@ function page() {
   }, []);
 
   const validateForm = () => {
-    const emailRegex = /^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const newErrors = {};
     if (!name.trim()) {
       newErrors.name = "Name is required";
@@ -44,126 +49,154 @@ function page() {
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0; // Return true if no errors
   };
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+
+  const handleSubmit = async (evt) => {
+    evt.preventDefault();
     setLoading(true);
     try {
-    } catch (err) {
-      console.log(err);
+      if (validateForm()) {
+        // Register user with Firebase Authentication
+        const userCredential = await createUserWithEmailAndPassword(
+          auth,
+          email,
+          password
+        );
+        const user = userCredential.user;
+
+        // Now you can use the user's UID as the document ID
+        const docRef = doc(firestore, "users", user.uid);
+        await setDoc(docRef, {
+          name,
+          email: email,
+          avatarUrl,
+          status: "online",
+        });
+
+        router.push("/");
+        setErrors({});
+      }
+    } catch (error) {
+      // Handle registration errors
+      console.error("Error registering user:", error.message);
+      toast.error(error.message);
+      setErrors({});
     }
+    setLoading(false);
   };
+  console.log(avatarUrl);
   return (
-    <div className="flex justify-center items-center h-screen p-10 m-2">
-      <form className="space-y-4 w-full max-w-2xl shadow-lg p-10">
-        <h1 className="text-xl text-center font-semibold text[#3D3B40]">
+    <div className="flex justify-center items-center h-screen font-primary p-10 m-2">
+      {/*form*/}
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-4 w-full max-w-2xl shadow-lg p-10"
+      >
+        <h1 className="font-secondary text-xl text-center font-semibold text-[#3D3B40]">
           Chat<span className="font-bold text-[#525CEB]">App</span>
         </h1>
-        {/* Avatar */}
 
-        <div className="flex items-center space-y-2 justify-between border border-gray-400 p-2">
+        {/* Display the avatar and refresh button */}
+        <div className="flex items-center space-y-2 justify-between border border-gray-200 p-2">
           <img
             src={avatarUrl}
-            className="rounded-full h-20 w-20"
-            alt="avatar"
-          ></img>
+            alt="Avatar"
+            className=" rounded-full h-20 w-20"
+          />
           <button
-            onClick={handleRefreshAvatar}
             type="button"
             className="btn btn-outline"
+            onClick={handleRefreshAvatar}
           >
             New Avatar
           </button>
         </div>
-        {/* Name */}
 
+        {/*name*/}
         <div>
           <label className="label">
             <span className="text-base label-text">Name</span>
           </label>
           <input
             type="text"
-            placeholder="Enter your name!"
+            placeholder="Name"
             className="w-full input input-bordered"
             value={name}
             onChange={(e) => setName(e.target.value)}
-          ></input>
-          {errors.name && (
-            <span className="text-sm text-red">{errors.name}</span>
-          )}
+          />
+          {errors.name && <span className="text-red-500">{errors.name}</span>}
         </div>
-        {/* Email */}
 
+        {/*email*/}
         <div>
           <label className="label">
             <span className="text-base label-text">Email</span>
           </label>
           <input
             type="text"
-            placeholder="Enter your email!"
+            placeholder="Email"
             className="w-full input input-bordered"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-          ></input>
-          {errors.email && (
-            <span className="text-sm text-red">{errors.email}</span>
-          )}
+          />
+          {errors.email && <span className="text-red-500">{errors.email}</span>}
         </div>
-        {/* Password */}
+
+        {/*password*/}
         <div>
           <label className="label">
             <span className="text-base label-text">Password</span>
           </label>
           <input
             type="password"
-            placeholder="Enter your password!"
+            placeholder="Enter Password"
             className="w-full input input-bordered"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-          ></input>
+          />
           {errors.password && (
-            <span className="text-sm text-red">{errors.password}</span>
+            <span className="text-red-500">{errors.password}</span>
           )}
         </div>
-        {/* Confirm Password */}
 
+        {/*confirm password*/}
         <div>
           <label className="label">
             <span className="text-base label-text">Confirm Password</span>
           </label>
           <input
             type="password"
-            placeholder="Confirm your password!"
+            placeholder="Confirm Password"
             className="w-full input input-bordered"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-          ></input>
+          />
           {errors.confirmPassword && (
-            <span className="text-sm text-red">{errors.confirmPassword}</span>
+            <span className="text-red-500">{errors.confirmPassword}</span>
           )}
         </div>
-        {/* Button */}
+
         <div>
           <button
-            className="btn btn-block bg-[#525CEB] text-white"
             type="submit"
+            className="btn btn-block bg-[#0b3a65ff] text-white"
           >
             {loading ? (
-              <span className="loading loading-dots loading-sm"></span>
+              <span className="loading loading-spinner loading-sm"></span>
             ) : (
-              "Register"
+              "Sign Up"
             )}
           </button>
-
-          <span>
-            Already have an account?{" "}
-            <Link
-              href="/login"
-              className="text-blue-600 hover:text-blue-800 hover:underline"
-            >
-              Login
-            </Link>
-          </span>
         </div>
+
+        <span>
+          Already have an account?{" "}
+          <Link
+            href="/login"
+            className="text-blue-600 hover:text-blue-800 hover:underline"
+          >
+            Login
+          </Link>
+        </span>
       </form>
     </div>
   );
